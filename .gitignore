@@ -1,0 +1,5 @@
+# Only skill folders get published. Everything else in this workspace is local.
+/*
+!/.gitignore
+!/README.md
+!/grokbot-icon/
