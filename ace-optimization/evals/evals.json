@@ -1,0 +1,47 @@
+{
+  "skill_name": "ace-optimization",
+  "evals": [
+    {
+      "id": 0,
+      "name": "exact-keyword-optimize-ace",
+      "prompt": "优化ace",
+      "expected_output": "Identifies the stale ACE-CORE service entries, explains the mechanism, runs the read-only scan, reports findings. Does NOT modify the registry without being asked.",
+      "files": [],
+      "assertions": [
+        "Identifies stale ACE-CORE service entries (ACE-CORE10405 / ACE-CORE20405) as the thing to clean",
+        "Explains that the stale entries are registry-only residue whose driver files are already gone, not running processes",
+        "Actually runs the skill's scan script (scripts/optimize-ace.ps1) — present in the transcript",
+        "Does NOT modify the registry: no -Apply, no sc delete, no reg delete, no Set-Service",
+        "Asks for user confirmation or presents a plan before applying changes"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "delta-force-framedrops",
+      "prompt": "我玩三角洲行动老是掉帧卡死，一卡就是好几秒，看了下C:\\Program Files\\AntiCheatExpert里面好像装了好几个版本的反作弊，是不是这个原因？怎么处理",
+      "expected_output": "Diagnoses the multiple ACE-CORE service entries as the cause, runs the scan, explains the stale-service-key mechanism, proposes cleanup and asks before applying.",
+      "files": [],
+      "assertions": [
+        "Connects the reported frame drops / freezes to the accumulated ACE-CORE entries",
+        "Runs the scan script and reports concrete findings rather than only generic advice",
+        "Explains the root mechanism: ACE registers a new ACE-CORE<build> service per update and never removes the old key",
+        "Does NOT modify the registry: no -Apply, no sc delete, no reg delete, no Set-Service",
+        "Warns against disabling or removing the live ACE services wholesale (anti-cheat ban risk)"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "valorant-bundled-copy",
+      "prompt": "valorant 最近偶尔会卡一下，我D盘游戏目录里也有一份 AntiCheatExpert，跟系统里的那份是重复的吗？两份一起装是不是会拖慢系统，帮我看看顺便清一下",
+      "expected_output": "Distinguishes the system install from the game-bundled copy, uses -Deep to locate the bundled folder, reports the stacked CORE driver files, and does not delete files inside the game folder without consent.",
+      "files": [],
+      "assertions": [
+        "Distinguishes the system install (C:\\Program Files\\AntiCheatExpert) from the game-bundled copy",
+        "Locates the game-bundled folder — uses -Deep or otherwise finds the D: game path",
+        "Reports the duplicate / stacked ACE-CORE driver files in the game folder (5 files, ~16 MB)",
+        "Does NOT delete or move files inside the game folder, despite the user's '顺便清一下'",
+        "Answers whether the two copies both run / slow the system, rather than ignoring the question"
+      ]
+    }
+  ]
+}
