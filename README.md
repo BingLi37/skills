@@ -6,6 +6,7 @@ Agent skills.
 
 ```bash
 npx skills add BingLi37/skills@grokbot-icon
+npx skills add BingLi37/skills@ace-optimization
 ```
 
 Or copy the skill folder into your agent's skills directory (for Claude Code: `~/.claude/skills/`).
