@@ -9,6 +9,8 @@ description: 操作本机 UC 网盘（UC Browser 云盘）：列目录/搜索/�
 
 ## 第一步：检查 CLI 是否已安装（每次会话首次使用前必做）
 
+支持 macOS 和 Windows（Git Bash）。先检查：
+
 ```bash
 command -v ucdrive || ls ~/.claude/skills/ucdrive/cli.mjs 2>/dev/null
 ```
@@ -25,25 +27,37 @@ command -v ucdrive || ls ~/.claude/skills/ucdrive/cli.mjs 2>/dev/null
    ```bash
    bash ~/.claude/skills/ucdrive/install.sh
    ```
-   脚本会检查 Node.js ≥20、创建 `~/bin/ucdrive` launcher，并提示 PATH 问题。
-2. 若提示 PATH 未包含 `~/bin`：把 `export PATH="$HOME/bin:$PATH"` 追加进用户的 shell 配置（`~/.zshrc`），并告知用户重开终端后生效；当前会话内可以直接用全路径 `~/.claude/skills/ucdrive/cli.mjs` 调用（用法相同，把 `ucdrive` 换成 `node ~/.claude/skills/ucdrive/cli.mjs`）。
+   脚本会检查 Node.js ≥20、创建 `~/bin/ucdrive`（macOS）或 `~/bin/ucdrive` + `~/bin/ucdrive.cmd`（Windows），并提示 PATH 问题。
+2. 若提示 PATH 未包含 `~/bin`：
+   - **macOS**：把 `export PATH="$HOME/bin:$PATH"` 追加进 `~/.zshrc`，告知用户重开终端后生效；当前会话内可直接 `node ~/.claude/skills/ucdrive/cli.mjs` 调用。
+   - **Windows（Git Bash 会话内）**：直接用全路径 `node ~/.claude/skills/ucdrive/cli.mjs`（用法相同）。要让用户永久生效，让其在 PowerShell 执行一次：
+     ```powershell
+     [Environment]::SetEnvironmentVariable('Path', $env:Path + ';' + "$env:USERPROFILE\bin", 'User')
+     ```
+     然后重开终端。
 3. **前置条件检查**（告诉用户）：
-   - macOS + UC 浏览器已安装，且**有 UC 网盘账号**（能在手机或浏览器里打开网盘）。
+   - macOS 或 Windows，已装 UC 浏览器，且**有 UC 网盘账号**（能在手机或浏览器里打开网盘）。
    - Node.js ≥20。
 4. 装完进入「首次登录引导」。
+
+## 平台注意事项
+
+- **Windows + Git Bash**：以 `/` 开头的云盘路径（如 `/教sss`）会被 MSYS 错误转换成本地盘路径。所有 `ucdrive` 命令前加 `MSYS_NO_PATHCONV=1`，或云盘路径写成 `//教sss`；**本地文件参数一律用 Windows 风格** `D:/dir/file`（正斜杠），不要用 `/d/dir/file`。
+- **Windows**：launcher 有 `.cmd` 版本，cmd/PowerShell 里用 `ucdrive.cmd`。若 UC 未带调试端口启动，`login` 会自动尝试 `taskkill` 后重启 UC（标签页会丢，登录态保留）。找不到 UC 安装路径时报 `UC_NOT_FOUND`，可设环境变量 `UC_PATH` 指向 uc.exe。
+- **凭证缓存位置**：macOS `~/Library/Application Support/uc-drive-mcp/`；Windows `%APPDATA%\uc-drive-mcp\`（0600，只含 token 不含密码）。旧版 macOS-only 路径的缓存会被自动读取。
 
 ## 首次登录引导（cached: false 时，按顺序带用户做）
 
 1. **告知用户**：「UC 网盘工具还没初始化，需要从你的 UC 浏览器抓取一次登录凭证，之后就可以不开 UC 直接用了。」
 2. **让用户配合**：请用户打开 UC 浏览器并进入**网盘页面**（能看到文件列表即可，保持页面开着）。
-   - 若用户平时用正常模式开 UC 也没关系，`ucdrive login` 会自动尝试带调试端口重启 UC（标签页会丢，登录态保留）。
+   - 若 UC 没以调试端口运行，`ucdrive login` 会自动重启 UC（标签页会丢，登录态保留）。
 3. **执行抓取**：
    ```bash
    ucdrive login
    ```
    - 成功：返回 `{"ok": true, ...}`，告诉用户「好了，以后不开 UC 也能用」，然后继续执行用户原本要的操作。
    - 失败 `WSG_HEADERS_TIMEOUT` / `NO_CLOUD_DRIVE_PAGE`：说明网盘页面没开或没加载完，请用户刷新网盘页面后重试 login。
-   - 失败含 `ECONNREFUSED`：UC 没起来，让用户手动打开 UC 并进入网盘页面，再重试。
+   - 失败含 `ECONNREFUSED` / `UC_NOT_FOUND`：UC 没起来或找不到安装路径，让用户手动打开 UC 并进入网盘页面，再重试。
 4. **验证**：`ucdrive list /` 能列出目录即完成，之后正常执行用户的任务。
 
 ## 核心规则
@@ -82,4 +96,4 @@ ucdrive info <path>                     # 单条目详情
 
 ## 技术背景（仅在用户问起时提及）
 
-外部模式使用从 UC 网络层抓取的 WSG 凭证集（ut + __uus + x-u-kps-wg/sign-wg/vcode）直连 `pc-api.uc.cn`；`file/sort`、`file/download` 等端点响应加密，故列表走 `general_search` 明文替代、下载与分片初始化走页面。凭证缓存在 `~/Library/Application Support/uc-drive-mcp/credentials.json`（0600，只含 token 不含密码）。
+外部模式使用从 UC 网络层抓取的 WSG 凭证集（ut + __uus + x-u-kps-wg/sign-wg/vcode）直连 `pc-api.uc.cn`；`file/sort`、`file/download` 等端点响应加密，故列表走 `general_search` 明文替代、下载与分片初始化走页面。下载走页面 fetch 中转，分块 512KB（更大分块会在 Windows 上把 CDP 页面 socket 断开，实测 32MB 必挂）。

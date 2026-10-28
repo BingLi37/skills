@@ -270,8 +270,9 @@ try {
         // auth-signing, part PUTs and complete are all external.
         const { hashesOf } = await import('./external-hashes.mjs');
         const { sha1, md5, buf } = await hashesOf(local);
+        const { basename } = await import('node:path');
         const fileName = rest.find((a) => a.startsWith('--name='))?.slice(7)
-          || local.split('/').pop();
+          || basename(local);
         const pre = await withPage(async () => {
           const raw = await pageEval(`(async () => {
             const id = 'ucmcp_' + Math.floor(performance.now());
@@ -361,7 +362,9 @@ try {
           await fsmk(dirname(local), { recursive: true });
           if (existsSync(local)) unlinkSync(local);
           const hash = createHash('sha256');
-          const RCHUNK = 32 * 1024 * 1024;
+          // ponytail: 512KB chunks — 32MB kills the CDP page socket (PAGE_WS_CLOSED
+          // on Windows); if throughput matters, stream via browser download instead
+          const RCHUNK = 512 * 1024;
           let offset = 0;
           let written = 0;
           while (offset < (total || 1)) {

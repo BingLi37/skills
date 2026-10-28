@@ -5,6 +5,7 @@
 // that page via Runtime.evaluate. This module owns the websocket to the page
 // target and re-establishes it when the context is destroyed (reload/nav).
 import { setTimeout as sleep } from 'node:timers/promises';
+import { accessSync } from 'node:fs';
 
 const CDP_PORT = process.env.UC_CDP_PORT || '9223';
 export const CDP_HTTP = `http://127.0.0.1:${CDP_PORT}`;
@@ -34,18 +35,45 @@ export async function ucReachable() {
   }
 }
 
+// Windows/macOS install paths probed in order; first hit wins.
+const UC_CANDIDATES = process.platform === 'win32' ? [
+  'D:/Program Files (x86)/UC浏览器/uc.exe',
+  'C:/Program Files (x86)/UC浏览器/uc.exe',
+  'C:/Program Files/UCBrowser/uc.exe',
+] : ['/Applications/UC.app/Contents/MacOS/UC'];
+
+function findUcBin() {
+  for (const p of UC_CANDIDATES) {
+    try { accessSync(p); return p; } catch { /* next */ }
+  }
+  return null;
+}
+
 // Launch UC with the debug port. Returns when the port answers.
 export async function launch_uc() {
   const { spawn } = await import('node:child_process');
+  const ucBin = findUcBin();
+  if (!ucBin) {
+    throw new Error('UC_NOT_FOUND: 未找到 UC 浏览器安装路径，请手动以 --remote-debugging-port='
+      + CDP_PORT + ' 启动 UC，或设置环境变量 UC_PATH 指向 uc.exe/UC');
+  }
+  const ucPath = process.env.UC_PATH || ucBin;
   // graceful quit first, so relaunch picks up the flag
   try {
-    const p = spawn('osascript', ['-e', 'tell application "UC" to quit']);
-    await new Promise((r) => p.on('close', r));
+    const killer = process.platform === 'win32'
+      ? spawn('taskkill', ['/IM', 'uc.exe'], { shell: true })
+      : spawn('osascript', ['-e', 'tell application "UC" to quit']);
+    await new Promise((r) => killer.on('close', r));
     await sleep(2500);
   } catch { /* maybe not running */ }
-  spawn('open', ['-a', '/Applications/UC.app', '--args',
-    '--remote-debugging-port', CDP_PORT,
-    '--remote-allow-origins', '*'], { detached: true, stdio: 'ignore' }).unref();
+  if (process.platform === 'darwin') {
+    spawn('open', ['-a', ucPath, '--args',
+      '--remote-debugging-port', CDP_PORT,
+      '--remote-allow-origins', '*'], { detached: true, stdio: 'ignore' }).unref();
+  } else {
+    spawn(ucPath, ['--remote-debugging-port', CDP_PORT,
+      '--remote-allow-origins', '*'], { detached: true, stdio: 'ignore' }).unref();
+  }
   for (let i = 0; i < 20; i++) {
     await sleep(1000);
     const st = await ucReachable();

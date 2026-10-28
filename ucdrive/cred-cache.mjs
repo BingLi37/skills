@@ -15,7 +15,14 @@ import { homedir } from 'node:os';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { CDP_HTTP, ensure_uc, ensure_page, close_page_socket } from './uc.mjs';
 
-const CACHE_DIR = join(homedir(), 'Library', 'Application Support', 'uc-drive-mcp');
+// Cross-platform per-user app-data dir (macOS / Windows / Linux XDG).
+const CACHE_DIR = join(homedir(), ...process.platform === 'win32'
+  ? ['AppData', 'Roaming', 'uc-drive-mcp']
+  : process.platform === 'darwin'
+    ? ['Library', 'Application Support', 'uc-drive-mcp']
+    : ['.local', 'share', 'uc-drive-mcp']);
+// Pre-cross-platform macOS-only path; kept as read fallback for old caches.
+const LEGACY_DIR = join(homedir(), 'Library', 'Application Support', 'uc-drive-mcp');
 const CACHE_FILE = join(CACHE_DIR, 'credentials.json');
 
 async function httpGetJson(path) {
@@ -129,12 +136,15 @@ function saveCache(creds) {
 }
 
 export function loadCache() {
-  if (!existsSync(CACHE_FILE)) return null;
-  try {
-    return JSON.parse(readFileSync(CACHE_FILE, 'utf8'));
-  } catch {
-    return null;
+  for (const f of [CACHE_FILE, join(LEGACY_DIR, 'credentials.json')]) {
+    if (!existsSync(f)) continue;
+    try {
+      return JSON.parse(readFileSync(f, 'utf8'));
+    } catch {
+      /* try next */
+    }
   }
+  return null;
 }
 
 export function cachePath() {
