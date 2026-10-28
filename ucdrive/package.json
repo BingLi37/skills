@@ -1,0 +1,7 @@
+{
+  "name": "ucdrive-skill",
+  "version": "1.0.0",
+  "description": "UC 网盘 (UC Browser cloud drive) CLI for AI agents — no MCP required",
+  "type": "module",
+  "bin": { "ucdrive": "./cli.mjs" }
+}
